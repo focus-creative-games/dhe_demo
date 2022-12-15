@@ -6,49 +6,22 @@
 
 **示例项目使用 Unity 2020.3.33(任意后缀子版本如f1、f1c1、f1c2都可以) 版本**，2019.4.x、2020.3.x、2021.3.x系列都可以，但为了避免新手无谓的出错，尽量使用2020.3.33版本来体验。
 
-## 设置
+## 介绍
 
-菜单 `HybridCLR/Settings` 中
-
-- differentialHybridAssemblies 差分混合执行的assembly列表
-- differentialHybridOptionOutputDir 差分混合执行的assembly的配置数据
-
-## 相关生成命令
-
-- `HybridCLR/Generate/Il2CppDef` 生成一些Unity版本相关宏
-- `HybridCLR/Generate/DHEAssemblyList` 生成 差分混合执行的assembly列表
-- `HybridCLR/Generate/DHEAssemblyOptionData` 生成差分混合执行assembly的一些配置数据
+- HotUpdateMain 类中 RunNotChangedMethod为未变化的函数，应该以AOT方式执行
+- RunChangedMethod为变化的函数，应该以解释方式执行。为了模拟代码修改后的样子，使用 DHE_HOT_UPDATE 宏来区分原始和修改后的代码。
+- 正常的项目，直接`HybridCLr/CompileAll/ActiveBuildTarget`即可编译热更新dll，而示例项目出于对比目的，使用 DHE_HOT_UPDATE 宏来区分原始和热更新的代码，因此编译热更新dll需要加上DHE_HOT_UPDATE宏定义。使用`HybridCLR/CompileDHEDlls`编译出热更新dll。
 
 ## 打包
 
-- `HybridCLR/Generate/All` 生成所有
-- `HybridCLR/Build/Win64` 生成并且运行示例项目
-
-## 运行
-
-示例项目中 Assebmly-CSharp.dll 为差分混合执行的assembly。
-
-该assembly中仅 CreateByCode::Start 函数以AOT方式执行，剩余所有代码以解释方式执行。
-
-运行程序后，主界面上显示两个按钮：
-
-- 运行原始AOT dll。 对应没有发生热更的情形，直接运行原始AOT代码。
-- 运行DifferentialHybrid dll。 对应发生热更的情形，一部分代码以AOT方式执行，一部分代码以解释方式执行。
-
-## 体验差分热更新 
-
-- 修改 HotUpdateMain中的代码
-- 修改 CreateByCode::Start中代码，假设改成 `Debug.Log("这个函数在解释器中执行");`
-- 运行 `HybridCLR/Build/BuildAssetsAndCopyToStreamingAssets`
-- 运行 `HybridCLR/Generate/DHEAssemblyOptionData`
-- 将 `Assets/StreamingAssets` 目录下的 Assembly-CSharp.dll.bytes和Assembly-CSharp.dhao.bytes 复制到 刚才打包的程序的StreamingAssets目录下
-- 再次运行。点击 `运行DifferentialHybrid dll`，会发现 HotUpdateMain中打印的字符串变化了，但 CreateByCode中打印的字符串仍然为`这个函数应该在AOT中执行`执行
+- `HybridCLR/Build/Win64` 生成并且运行示例项目，可以看到 RunNotChangedMethod和RunChangedMethod虽然原始代码相同，但经过变更后，RunChangedMethod以解释方式执行，执行时间有近8倍的差距。
 
 ## 其他说明
 
-社区版本目前只是最基本的特性演示，因此极不完善，请参见 [Differential Hybird Execution](https://focus-creative-games.github.io/hybridclr/differential_hybrid_execution/) 了解基础版本的详细用法及限制。
+DHE暂时只提供商业版本，不开源源码，但项目Release中附带了一个通用的ios版本的libil2cpp.a，可以用于一般性质的测试体验，替换导出的xcode工程的libil2cpp.a即可。
 
-完善的版本随着我们专利申请进程会逐渐发布。
+更详细请参见 [Differential Hybird Execution](https://focus-creative-games.github.io/hybridclr/differential_hybrid_execution/) 。
+
 
 ## 支持与联系
 
