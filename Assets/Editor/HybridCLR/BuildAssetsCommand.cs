@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Build.Player;
 using UnityEngine;
 
 namespace HybridCLR.Editor
@@ -69,12 +70,41 @@ namespace HybridCLR.Editor
             BuildAssetBundles(GetAssetBundleTempDirByTarget(target), GetAssetBundleOutputDirByTarget(target), target);
         }
 
-        [MenuItem("HybridCLR/Build/BuildAssetsAndCopyToStreamingAssets")]
+        [MenuItem("HybridCLR/CompileDHEDlls", priority = 113)]
+        public static void CompileAssemblyOptionDatas()
+        {
+            var target = EditorUserBuildSettings.activeBuildTarget;
+            CompileDHEDll(target, SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target));
+        }
+
+        public static void CompileDHEDll(BuildTarget target, string buildDir)
+        {
+            var group = BuildPipeline.GetBuildTargetGroup(target);
+            Directory.CreateDirectory(buildDir);
+
+            ScriptCompilationSettings scriptCompilationSettings = new ScriptCompilationSettings();
+            scriptCompilationSettings.group = group;
+            scriptCompilationSettings.target = target;
+
+#if UNITY_2020_1_OR_NEWER
+            scriptCompilationSettings.extraScriptingDefines = new string[] { "DHE_HOT_UPDATE" };
+#else
+            //scriptCompilationSettings.extraScriptingDefines = new string[] { "DHE_HOT_UPDATE" };
+#endif
+            Directory.CreateDirectory(buildDir);
+            ScriptCompilationResult scriptCompilationResult = PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, buildDir);
+
+            Debug.Log("compile DHE finish!!!");
+        }
+
+        [MenuItem("HybridCLR/BuildAssetsAndCopyToStreamAssets")]
         public static void BuildAndCopyABAOTHotUpdateDlls()
         {
-            BuildAssetBundleByTarget(EditorUserBuildSettings.activeBuildTarget);
+            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+            BuildAssetBundleByTarget(target);
             CopyAssetBundlesToStreamingAssets();
-            CompileDllCommand.CompileDllActiveBuildTarget();
+            CompileDHEDll(target, SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target));
+            DifferentialHybridExecutionCommand.GenerateAssemblyOptionDatas(target);
             //CopyAOTAssembliesToStreamingAssets();
             CopyHotUpdateAssembliesToStreamingAssets();
         }
@@ -94,26 +124,6 @@ namespace HybridCLR.Editor
             BuildAssetBundleByTarget(EditorUserBuildSettings.activeBuildTarget);
         }
 
-        public static void CopyAOTAssembliesToStreamingAssets()
-        {
-            var target = EditorUserBuildSettings.activeBuildTarget;
-            string aotAssembliesSrcDir = SettingsUtil.GetAssembliesPostIl2CppStripDir(target);
-            string aotAssembliesDstDir = Application.streamingAssetsPath;
-
-            foreach (var dll in LoadDll.AOTMetaAssemblyNames)
-            {
-                string srcDllPath = $"{aotAssembliesSrcDir}/{dll}";
-                if (!File.Exists(srcDllPath))
-                {
-                    Debug.LogError($"ab中添加AOT补充元数据dll:{srcDllPath} 时发生错误,文件不存在。裁剪后的AOT dll在BuildPlayer时才能生成，因此需要你先构建一次游戏App后再打包。");
-                    continue;
-                }
-                string dllBytesPath = $"{aotAssembliesDstDir}/{dll}.bytes";
-                File.Copy(srcDllPath, dllBytesPath, true);
-                Debug.Log($"[CopyAOTAssembliesToStreamingAssets] copy AOT dll {srcDllPath} -> {dllBytesPath}");
-            }
-        }
-
         public static void CopyHotUpdateAssembliesToStreamingAssets()
         {
             var target = EditorUserBuildSettings.activeBuildTarget;
@@ -130,9 +140,9 @@ namespace HybridCLR.Editor
                 string dllBytesPath = $"{hotfixAssembliesDstDir}/{dll}.bytes";
                 string dllBytesPath_win64 = $"{SettingsUtil.ProjectDir}/Build-Win64/build/bin/HybridDll_Data/StreamingAssets/{dll}.bytes";
                 File.Copy(dllPath, dllBytesPath, true);
-                File.Copy(dllPath, dllBytesPath_win64, true);
+                //File.Copy(dllPath, dllBytesPath_win64, true);
                 Debug.Log($"[CopyHotUpdateAssembliesToStreamingAssets] copy hotfix dll {dllPath} -> {dllBytesPath}");
-                Debug.Log($"[CopyHotUpdateAssembliesToStreamingAssets] copy hotfix dll {dllPath} -> {dllBytesPath_win64}");
+                //Debug.Log($"[CopyHotUpdateAssembliesToStreamingAssets] copy hotfix dll {dllPath} -> {dllBytesPath_win64}");
             }
         }
 
