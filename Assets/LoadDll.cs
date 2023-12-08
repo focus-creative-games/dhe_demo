@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -16,7 +17,8 @@ public class LoadDll : MonoBehaviour
     {
         // Editor环境下，HotUpdate.dll.bytes已经被自动加载，不需要加载，重复加载反而会出问题。
 #if !UNITY_EDITOR
-        Assembly hotUpdateAss = LoadDifferentialHybridAssembly("HotUpdate");
+        var manifests = LoadManifest($"{Application.streamingAssetsPath}/manifest.txt");
+        Assembly hotUpdateAss = LoadDifferentialHybridAssembly(manifests["HotUpdate"], "HotUpdate");
 #else
         // Editor下无需加载，直接查找获得HotUpdate程序集
         Assembly hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
@@ -26,12 +28,42 @@ public class LoadDll : MonoBehaviour
         runMethod.Invoke(null, null);
     }
 
-    private Assembly LoadDifferentialHybridAssembly(string assName)
+    class Manifest
     {
-        byte[] dllBytes =  File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
-        string dhaoPath = $"{Application.streamingAssetsPath}/{assName}.dhao.bytes";
-        byte[] dhaoBytes = File.Exists(dhaoPath) ? File.ReadAllBytes(dhaoPath) : null;
-        LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssembly(dllBytes, dhaoBytes, true);
+        public string AssemblyName { get; set; }
+
+        public string OriginalDllMd5 { get; set; }
+
+        public string CurrentDllMd5 { get; set; }
+    }
+
+    private Dictionary<string, Manifest> LoadManifest(string manifestFile)
+    {
+        var manifest = new Dictionary<string, Manifest>();
+        var lines = File.ReadAllLines(manifestFile, Encoding.UTF8);
+        foreach (var line in lines)
+        {
+            string[] args = line.Split(",");
+            if (args.Length != 3)
+            {
+                Debug.LogError($"manifest file format error, line={line}");
+                return null;
+            }
+            manifest.Add(args[0], new Manifest()
+            {
+                AssemblyName = args[0],
+                OriginalDllMd5 = args[1],
+                CurrentDllMd5 = args[2],
+            });
+        }
+        return manifest;
+    }
+
+    private Assembly LoadDifferentialHybridAssembly(Manifest manifest, string assName)
+    {
+        byte[] dllBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
+        byte[] dhaoBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dhao.bytes");
+        LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssembly(dllBytes, dhaoBytes, manifest.OriginalDllMd5, manifest.CurrentDllMd5);
         if (err == LoadImageErrorCode.OK)
         {
             Debug.Log($"LoadDifferentialHybridAssembly {assName} OK");

@@ -834,8 +834,8 @@ PlayerSettings:
     Standalone: 3
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: dhe_demo2
-  metroPackageVersion: 
+  metroPackageName: dhedemo2
+  metroPackageVersion: 1.0.0.0
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
@@ -843,7 +843,7 @@ PlayerSettings:
   metroCertificateNotAfter: 0000000000000000
   metroApplicationDescription: dhe_demo2
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: dhe_demo2
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0

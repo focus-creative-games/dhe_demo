@@ -22,12 +22,12 @@ MonoBehaviour:
   hotUpdateDllCompileOutputRootDir: HybridCLRData/HotUpdateDlls
   externalHotUpdateAssembliyDirs: []
   strippedAOTDllOutputRootDir: HybridCLRData/AOTDllOutput
-  strippedAOTDllSnapshotDir: HybridCLRData/AOTDllSnapshot
   patchAOTAssemblies: []
   differentialHybridAssemblies:
   - HotUpdate
-  differentialHybridOptionOutputDir: HybridCLRData/DifferentialHybridOptionDatas
   outputLinkFile: HybridCLRGenerate/link.xml
   outputAOTGenericReferenceFile: HybridCLRGenerate/AOTGenericReferences.cs
   maxGenericReferenceIteration: 10
   maxMethodBridgeGenericIteration: 10
+  enableEncryption: 0
+  encryptionSeed: 12358132
