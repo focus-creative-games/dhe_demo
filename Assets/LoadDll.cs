@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -33,8 +34,6 @@ public class LoadDll : MonoBehaviour
         public string AssemblyName { get; set; }
 
         public string OriginalDllMd5 { get; set; }
-
-        public string CurrentDllMd5 { get; set; }
     }
 
     private Dictionary<string, Manifest> LoadManifest(string manifestFile)
@@ -44,7 +43,7 @@ public class LoadDll : MonoBehaviour
         foreach (var line in lines)
         {
             string[] args = line.Split(",");
-            if (args.Length != 3)
+            if (args.Length != 2)
             {
                 Debug.LogError($"manifest file format error, line={line}");
                 return null;
@@ -53,17 +52,23 @@ public class LoadDll : MonoBehaviour
             {
                 AssemblyName = args[0],
                 OriginalDllMd5 = args[1],
-                CurrentDllMd5 = args[2],
             });
         }
         return manifest;
+    }
+
+
+    public static string CreateMD5Hash(byte[] bytes)
+    {
+        return BitConverter.ToString(new MD5CryptoServiceProvider().ComputeHash(bytes)).Replace("-", "").ToUpperInvariant();
     }
 
     private Assembly LoadDifferentialHybridAssembly(Manifest manifest, string assName)
     {
         byte[] dllBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
         byte[] dhaoBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dhao.bytes");
-        LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssembly(dllBytes, dhaoBytes, manifest.OriginalDllMd5, manifest.CurrentDllMd5);
+        string currentDllMd5 = CreateMD5Hash(dllBytes);
+        LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssembly(dllBytes, dhaoBytes, manifest.OriginalDllMd5, currentDllMd5);
         if (err == LoadImageErrorCode.OK)
         {
             Debug.Log($"LoadDifferentialHybridAssembly {assName} OK");

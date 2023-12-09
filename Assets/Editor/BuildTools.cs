@@ -15,6 +15,8 @@ public static class BuildTools
 
     public const string DhaoDir = "HybridCLRData/Dhao";
 
+    public const string ManifestFile = "manifest.txt";
+
 
     /// <summary>
     /// 备份构建主包时生成的裁剪AOT dll
@@ -33,6 +35,35 @@ public static class BuildTools
             System.IO.File.Copy(dll, dstFile, true);
             Debug.Log($"BackupAOTDllFromAssemblyPostStrippedDir: {dll} -> {dstFile}");
         }
+    }
+
+    /// <summary>
+    /// 创建dhe manifest文件，格式为每行一个 'dll名，原始dll的md5'
+    /// </summary>
+    /// <param name="outputDir"></param>
+    [MenuItem("BuildTools/CreateManifestAtBackupDir")]
+    public static void CreateManifest()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string backupDir = $"{BackupAOTDllDir}/{target}";
+        CreateManifest(backupDir);
+    }
+
+    public static void CreateManifest(string outputDir)
+    {
+        Directory.CreateDirectory(outputDir);
+        var lines = new List<string>();
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string backupDir = $"{BackupAOTDllDir}/{target}";
+        foreach (string dheDll in SettingsUtil.DifferentialHybridAssemblyNames)
+        {
+            string originalDll = $"{backupDir}/{dheDll}.dll";
+            string originalDllMd5 = AssemblyOptionDataGenerator.CreateMD5Hash(File.ReadAllBytes(originalDll));
+            lines.Add($"{dheDll},{originalDllMd5}");
+        }
+        string manifestFile = $"{outputDir}/{ManifestFile}";
+        File.WriteAllBytes(manifestFile, System.Text.Encoding.UTF8.GetBytes(string.Join("\n", lines)));
+        Debug.Log($"CreateManifest: {manifestFile}");
     }
 
     /// <summary>
@@ -89,43 +120,20 @@ public static class BuildTools
     }
 
     /// <summary>
-    /// 创建dhe manifest文件，格式为每行一个 'dll名，原始dll的md5，当前dll的md5'
-    /// </summary>
-    /// <param name="outputDir"></param>
-    [MenuItem("BuildTools/CreateManifestAtStreamingAssets")]
-    public static void CreateManifest()
-    {
-        CreateManifest(Application.streamingAssetsPath);
-    }
-
-    public static void CreateManifest(string outputDir)
-    {
-        Directory.CreateDirectory(outputDir);
-        var lines = new List<string>();
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string backupDir = $"{BackupAOTDllDir}/{target}";
-        foreach (string dheDll in SettingsUtil.DifferentialHybridAssemblyNames)
-        {
-            string originalDll = $"{backupDir}/{dheDll}.dll";
-            string originalDllMd5 = AssemblyOptionDataGenerator.CreateMD5Hash(File.ReadAllBytes(originalDll));
-            string currentDll = $"{outputDir}/{dheDll}.dll.bytes";
-            string currentDllMd5 = AssemblyOptionDataGenerator.CreateMD5Hash(File.ReadAllBytes(currentDll));
-            lines.Add($"{dheDll},{originalDllMd5},{currentDllMd5}");
-        }
-        string manifestFile = $"{outputDir}/manifest.txt";
-        File.WriteAllBytes(manifestFile, System.Text.Encoding.UTF8.GetBytes(string.Join("\n", lines)));
-        Debug.Log($"CreateManifest: {manifestFile}");
-    }
-
-    /// <summary>
     /// 复制没有改动的首包dll和dhao文件到StreamingAssets
     /// </summary>
-    [MenuItem("BuildTools/CopyUnchangedDllAndDhaoFileToStreamingAssets")]
+    [MenuItem("BuildTools/CopyUnchangedDllAndDhaoFileAndManifestToStreamingAssets")]
     public static void CopyUnchangedDllAndDhaoFileToStreamingAssets()
     {
         BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
         string streamingAssetsDir = Application.streamingAssetsPath;
         Directory.CreateDirectory(streamingAssetsDir);
+
+        string manifestFile = $"{BackupAOTDllDir}/{target}/{ManifestFile}";
+        string dstManifestFile = $"{streamingAssetsDir}/{ManifestFile}";
+        System.IO.File.Copy(manifestFile, dstManifestFile, true);
+        Debug.Log($"CopyUnchangedDllAndDhaoFileToStreamingAssets: {manifestFile} -> {dstManifestFile}");
+
         string dllDir = $"{BackupAOTDllDir}/{target}";
         string dhaoDir = $"{DhaoDir}/{target}";
         foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
@@ -150,6 +158,7 @@ public static class BuildTools
         BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
         string streamingAssetsDir = Application.streamingAssetsPath;
         Directory.CreateDirectory(streamingAssetsDir);
+
         string dllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
         string dhaoDir = $"{DhaoDir}/{target}";
         foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
