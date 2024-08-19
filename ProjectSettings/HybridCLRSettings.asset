@@ -25,9 +25,20 @@ MonoBehaviour:
   patchAOTAssemblies: []
   differentialHybridAssemblies:
   - HotUpdate
+  injectRuleFiles: []
   outputLinkFile: HybridCLRGenerate/link.xml
   outputAOTGenericReferenceFile: HybridCLRGenerate/AOTGenericReferences.cs
   maxGenericReferenceIteration: 10
   maxMethodBridgeGenericIteration: 10
-  enableEncryption: 0
-  encryptionSeed: 12358132
+  encryptionSettings:
+    encryptGlobalMetadataData: 0
+    vmSeed: 0
+    metadataSeed: 0
+    key: 1234567890abcdef
+    stringEncCodeLength: 128
+    blobEncCodeLength: 128
+    userStringEncCodeLength: 128
+    tableEncCodeLength: 128
+    lazyUserStringEncCodeLength: 16
+    lazyTableEncCodeLength: 16
+    methodBodyEncCodeLength: 16

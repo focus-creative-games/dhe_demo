@@ -2,18 +2,27 @@
 
 本工程为旗舰版本的测试工程。HotUpdate程序集为热更新程序集。
 
-启动后会运行Benchmark中测试，对Test1和Test2各运行10遍，打印耗费的时间。
+启动后会将BenchmarkTest运行10遍，打印耗费的时间。
+
+出于简单起见，本示例工程仅支持Windows、MacOS之类的Standalone平台。
+
+## 安装
+
+请参考旗舰版本的[快速上手文档](https://hybridclr.doc.code-philosophy.com/docs/business/ultimate/quickstartunchecked)。
+
+## 构建游戏
+
+- 运行`HybridCLR/Generate/All`
+- 打开`Build Settings`，点击`Build`
+- 运行`BuildTools/BackupAOT`备份打包时生成的AOT dll，这一步非常关键不可遗漏
 
 ## 首包测试
 
-直接运行`Release/dhe_demo2.exe`，由于此时未发生任何修改，Test1和Test2都执行了AOT版本，运行时间相同，而且运行时都为0（四舍五入导致）。
+运行刚才构建的dhe_demo.exe程序，屏幕上会打印`========= Run Unchanged BenchmarkTest`
 
 ## 热更新测试
 
-`Release\dhe_demo2_Data`目录下 StreamingAssets_v0 为首包代码， StreamingAssets_v1为热更新后代码。初始时， StreamingAssets目录内容与StreamingAssets_v0相同。
-
-- 打开`Release\dhe_demo2_Data`目录
-- 删除StreamingAssets目录
-- 将StreamingAssets_v1复制为StreamingAssets
-- 再次运行 `Release/dhe_demo2.exe`，此时Test0函数未修改，仍然以AOT模式执行，而Test2函数发生变化，以解释模式执行。从打印的运行时间日志，可以明显看到区别
+- 运行`BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas` 生成热更新dll及对应的dhao文件，并且复制到`HotUpdateDatas`目录
+- 手动复制`HotUpdateDatas`目录下HotUpdate.dll.bytes和HotUpdate.dhao.bytes到构建游戏的输出目录下的`dhe_demo_Data\StreamingAssets`目录下
+- 再次运行，屏幕上会打印`========= Run Changed BenchmarkTest`
 

@@ -18,66 +18,51 @@ public class LoadDll : MonoBehaviour
     {
         // Editor环境下，HotUpdate.dll.bytes已经被自动加载，不需要加载，重复加载反而会出问题。
 #if !UNITY_EDITOR
-        var manifests = LoadManifest($"{Application.streamingAssetsPath}/manifest.txt");
-        Assembly hotUpdateAss = LoadDifferentialHybridAssembly(manifests["HotUpdate"], "HotUpdate");
-#else
-        // Editor下无需加载，直接查找获得HotUpdate程序集
-        Assembly hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
+        LoadDifferentialHybridAssembly("HotUpdate");
 #endif
+        Assembly hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
         Type helloType = hotUpdateAss.GetType("Hello");
         MethodInfo runMethod = helloType.GetMethod("Run");
         runMethod.Invoke(null, null);
     }
 
-    class Manifest
-    {
-        public string AssemblyName { get; set; }
 
-        public string OriginalDllMd5 { get; set; }
-    }
-
-    private Dictionary<string, Manifest> LoadManifest(string manifestFile)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="assName">不含文件名后缀的程序集名，如HotUpdate</param>
+    /// <returns></returns>
+    private void LoadDifferentialHybridAssembly(string assName)
     {
-        var manifest = new Dictionary<string, Manifest>();
-        var lines = File.ReadAllLines(manifestFile, Encoding.UTF8);
-        foreach (var line in lines)
+        string assFile = $"{Application.streamingAssetsPath}/{assName}.dll.bytes";
+        // 如果不存在，则使用原始AOT程序集
+        if (!File.Exists(assFile))
         {
-            string[] args = line.Split(",");
-            if (args.Length != 2)
+            LoadImageErrorCode err = RuntimeApi.LoadOriginalDifferentialHybridAssembly(assName);
+            if (err == LoadImageErrorCode.OK)
             {
-                Debug.LogError($"manifest file format error, line={line}");
-                return null;
+                Debug.Log($"LoadOriginalDifferentialHybridAssembly {assName} OK");
             }
-            manifest.Add(args[0], new Manifest()
+            else
             {
-                AssemblyName = args[0],
-                OriginalDllMd5 = args[1],
-            });
-        }
-        return manifest;
-    }
-
-
-    public static string CreateMD5Hash(byte[] bytes)
-    {
-        return BitConverter.ToString(new MD5CryptoServiceProvider().ComputeHash(bytes)).Replace("-", "").ToUpperInvariant();
-    }
-
-    private Assembly LoadDifferentialHybridAssembly(Manifest manifest, string assName)
-    {
-        byte[] dllBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
-        byte[] dhaoBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dhao.bytes");
-        string currentDllMd5 = CreateMD5Hash(dllBytes);
-        LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssembly(dllBytes, dhaoBytes, manifest.OriginalDllMd5, currentDllMd5);
-        if (err == LoadImageErrorCode.OK)
-        {
-            Debug.Log($"LoadDifferentialHybridAssembly {assName} OK");
-            return System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == assName);
+                Debug.LogError($"LoadOriginalDifferentialHybridAssembly {assName} failed, err={err}");
+            }
         }
         else
         {
-            Debug.LogError($"LoadDifferentialHybridAssembly {assName} failed, err={err}");
-            return null;
+            byte[] dllBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
+            byte[] dhaoBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dhao.bytes");
+            LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssemblyUnchecked(dllBytes, dhaoBytes);
+            if (err == LoadImageErrorCode.OK)
+            {
+                Debug.Log($"LoadDifferentialHybridAssembly {assName} OK");
+            }
+            else
+            {
+                Debug.LogError($"LoadDifferentialHybridAssembly {assName} failed, err={err}");
+            }
         }
+
+
     }
 }
