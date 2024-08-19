@@ -14,7 +14,7 @@
 
 - 运行`HybridCLR/Generate/All`
 - 打开`Build Settings`，点击`Build`
-- 运行`BuildTools/BackupAOT`备份打包时生成的AOT dll，这一步非常关键不可遗漏
+- 运行`BuildTools/BackupAOT`备份打包时生成的AOT dll，这一步非常关键不可遗漏。**这一步必须在`Build`之后**，因为原始AOT dll必须是构建时生成的dll，而不是`HybridCLR/Generate/all`时生成
 
 ## 首包测试
 
@@ -22,7 +22,9 @@
 
 ## 热更新测试
 
-- 运行`BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas` 生成热更新dll及对应的dhao文件，并且复制到`HotUpdateDatas`目录
+- 请确保`构建游戏`这一步已经执行了`BuildTools/BackupAOTDll`，运行一次即可，不要多次运行
+- 运行`BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas` 生成热更新dll及对应的dhao文件
+- 运行`BuildTools/CopyDllAndDhaoFileToHotUpdateDataDir`复制HotUpdate.dll.bytes和HotUpdate.dhao.bytes到`HotUpdateDatas`目录
 - 手动复制`HotUpdateDatas`目录下HotUpdate.dll.bytes和HotUpdate.dhao.bytes到构建游戏的输出目录下的`dhe_demo_Data\StreamingAssets`目录下
 - 再次运行，屏幕上会打印`========= Run Changed BenchmarkTest`
 

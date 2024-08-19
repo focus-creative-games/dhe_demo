@@ -18,8 +18,6 @@ public static class BuildTools
 
     public const string DhaoDir = "HybridCLRData/Dhao";
 
-    public const string ManifestFile = "manifest.txt";
-
 
     /// <summary>
     /// 备份构建主包时生成的裁剪AOT dll
@@ -37,6 +35,70 @@ public static class BuildTools
             string dstFile = $"{BackupAOTDllDir}/{target}/{fileName}";
             System.IO.File.Copy(dll, dstFile, true);
             Debug.Log($"BackupAOTDllFromAssemblyPostStrippedDir: {dll} -> {dstFile}");
+        }
+    }
+
+
+    /// <summary>
+    /// 生成热更包的dhao数据
+    /// </summary>
+    [MenuItem("BuildTools/GenerateDHAODatas")]
+    public static void GenerateDHAODatas()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string backupDir = $"{BackupAOTDllDir}/{target}";
+        string dhaoDir = $"{DhaoDir}/{target}";
+        string currentDllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        BuildUtils.GenerateDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, currentDllDir, null, HybridCLRSettings.Instance.injectRuleFiles, dhaoDir);
+    }
+
+
+    [MenuItem("BuildTools/CompileHotUpdateDlls")]
+    public static void CompileHotUpdateDlls()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string outputDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        Directory.CreateDirectory(outputDir);
+        var group = BuildPipeline.GetBuildTargetGroup(target);
+
+        ScriptCompilationSettings scriptCompilationSettings = new ScriptCompilationSettings();
+        scriptCompilationSettings.group = group;
+        scriptCompilationSettings.target = target;
+        scriptCompilationSettings.extraScriptingDefines = new string[] { "HOT_UPDATE_CHANGE" };
+        ScriptCompilationResult scriptCompilationResult = PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
+        Debug.Log("compile finish!!!");
+    }
+
+
+    [MenuItem("BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas")]
+    public static void CompileHotUpdateDllsAndGenerateDHAODatas()
+    {
+        CompileHotUpdateDlls();
+        GenerateDHAODatas();
+    }
+
+    /// <summary>
+    /// 复制热更新dll和dhao文件到StreamingAssets
+    /// </summary>
+    [MenuItem("BuildTools/CopyDllAndDhaoFileToHotUpdateDataDir")]
+    public static void CopyDllAndDhaoFileToHotUpdateDataDir()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string hotUpdateDatasDir = $"{Application.dataPath}/../HotUpdateDatas";
+        Directory.CreateDirectory(hotUpdateDatasDir);
+
+        string dllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        string dhaoDir = $"{DhaoDir}/{target}";
+        foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
+        {
+            string srcFile = $"{dllDir}/{dll}.dll";
+            string dstFile = $"{hotUpdateDatasDir}/{dll}.dll.bytes";
+            System.IO.File.Copy(srcFile, dstFile, true);
+            Debug.Log($"Copy: {srcFile} -> {dstFile}");
+            string dhaoFile = $"{dhaoDir}/{dll}.dhao.bytes";
+            dstFile = $"{hotUpdateDatasDir}/{dll}.dhao.bytes";
+            System.IO.File.Copy(dhaoFile, dstFile, true);
+            Debug.Log($"Copy: {dhaoFile} -> {dstFile}");
         }
     }
 
@@ -82,41 +144,6 @@ public static class BuildTools
     //}
 
 
-    [MenuItem("BuildTools/CompileHotUpdateDlls")]
-    public static void CompileHotUpdateDlls()
-    {
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string outputDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        Directory.CreateDirectory(outputDir);
-        var group = BuildPipeline.GetBuildTargetGroup(target);
-
-        ScriptCompilationSettings scriptCompilationSettings = new ScriptCompilationSettings();
-        scriptCompilationSettings.group = group;
-        scriptCompilationSettings.target = target;
-        scriptCompilationSettings.extraScriptingDefines = new string[] { "HOT_UPDATE_CHANGE" };
-        ScriptCompilationResult scriptCompilationResult = PlayerBuildInterface.CompilePlayerScripts(scriptCompilationSettings, outputDir);
-        Debug.Log("compile finish!!!");
-    }
-
-    /// <summary>
-    /// 生成热更包的dhao数据
-    /// </summary>
-    [MenuItem("BuildTools/GenerateDHAODatas")]
-    public static void GenerateDHAODatas()
-    {
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string backupDir = $"{BackupAOTDllDir}/{target}";
-        string dhaoDir = $"{DhaoDir}/{target}";
-        string currentDllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        BuildUtils.GenerateDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, currentDllDir, null, HybridCLRSettings.Instance.injectRuleFiles, dhaoDir);
-    }
-
-    [MenuItem("BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas")]
-    public static void CompileHotUpdateDllsAndGenerateDHAODatas()
-    {
-        CompileHotUpdateDlls();
-        GenerateDHAODatas();
-    }
 
     ///// <summary>
     ///// 生成首包的加密dll和没有任何代码改动对应的dhao数据
@@ -176,28 +203,5 @@ public static class BuildTools
     //    }
     //}
 
-    /// <summary>
-    /// 复制热更新dll和dhao文件到StreamingAssets
-    /// </summary>
-    [MenuItem("BuildTools/CopyDllAndDhaoFileToHotUpdateDataDir")]
-    public static void CopyDllAndDhaoFileToHotUpdateDataDir()
-    {
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string hotUpdateDatasDir = $"{Application.dataPath}/../HotUpdateDatas";
-        Directory.CreateDirectory(hotUpdateDatasDir);
 
-        string dllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        string dhaoDir = $"{DhaoDir}/{target}";
-        foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
-        {
-            string srcFile = $"{dllDir}/{dll}.dll";
-            string dstFile = $"{hotUpdateDatasDir}/{dll}.dll.bytes";
-            System.IO.File.Copy(srcFile, dstFile, true);
-            Debug.Log($"Copy: {srcFile} -> {dstFile}");
-            string dhaoFile = $"{dhaoDir}/{dll}.dhao.bytes";
-            dstFile = $"{hotUpdateDatasDir}/{dll}.dhao.bytes";
-            System.IO.File.Copy(dhaoFile, dstFile, true);
-            Debug.Log($"Copy: {dhaoFile} -> {dstFile}");
-        }
-    }
 }
