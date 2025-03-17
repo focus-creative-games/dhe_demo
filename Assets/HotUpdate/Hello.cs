@@ -1,8 +1,13 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
 public class Hello
 {
+
+    //private static Tuple<Type, bool> s_Tuple = new Tuple<Type, bool>(typeof(int), false);
+    //private static Tuple<Type> s_Tuple = new Tuple<Type>(typeof(int));
+
     public static void Run()
     {
         int round = 10;

@@ -70,7 +70,7 @@ namespace HybridCLR.Editor
             BuildAssetBundles(GetAssetBundleTempDirByTarget(target), GetAssetBundleOutputDirByTarget(target), target);
         }
 
-        [MenuItem("BuildTools/BuildAssetbundle")]
+        [MenuItem("Build/BuildAssetBundle")]
         public static void BuildSceneAssetBundleActiveBuildTargetExcludeAOT()
         {
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;

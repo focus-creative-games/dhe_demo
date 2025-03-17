@@ -1,6 +1,7 @@
 using HybridCLR.Editor;
 using HybridCLR.Editor.Commands;
 using HybridCLR.Editor.DHE;
+using HybridCLR.Editor.Installer;
 using HybridCLR.Editor.Settings;
 using HybridCLR.Runtime;
 using System.Collections;
@@ -12,48 +13,38 @@ using UnityEngine;
 
 public static class BuildTools
 {
-    public const string BackupAOTDllDir = "HybridCLRData/BackupAOT";
 
-    public const string EncrypedDllDir = "HybridCLRData/EncryptedDll";
+    public static string GetAOTSnapshotDir(BuildTarget target)
+    {
+        return $"{SettingsUtil.HybridCLRDataDir}/Snapshot/{target}";
+    }
 
-    public const string DhaoDir = "HybridCLRData/Dhao";
-
-
-    /// <summary>
-    /// 备份构建主包时生成的裁剪AOT dll
-    /// </summary>
-    [MenuItem("BuildTools/BackupAOTDll")]
-    public static void BackupAOTDllFromAssemblyPostStrippedDir()
+    [MenuItem("Build/CreateAotSnapshot")]
+    public static void CreateAOTSnapshot()
     {
         BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        var backupDir = $"{BackupAOTDllDir}/{target}";
-        System.IO.Directory.CreateDirectory(backupDir);
-        var dlls = System.IO.Directory.GetFiles(SettingsUtil.GetAssembliesPostIl2CppStripDir(target));
-        foreach (var dll in dlls)
-        {
-            var fileName = System.IO.Path.GetFileName(dll);
-            string dstFile = $"{BackupAOTDllDir}/{target}/{fileName}";
-            System.IO.File.Copy(dll, dstFile, true);
-            Debug.Log($"BackupAOTDllFromAssemblyPostStrippedDir: {dll} -> {dstFile}");
-        }
+        string snapshotDir = GetAOTSnapshotDir(target);
+        MetaVersionWorkflow.CreateAotSnapshot(target, snapshotDir);
+
+        MetaVersionWorkflow.GenerateAotSnapshotMetaVersionFiles(null, snapshotDir);
+    }
+
+    //[MenuItem("Build/GenerateHotUpdateMetaVersionFiles")]
+    public static void GenerateHotUpdateMetaVersionFiles()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        GenerateHotUpdateMetaVersionFiles(target);
+    }
+
+    public static void GenerateHotUpdateMetaVersionFiles(BuildTarget target)
+    {
+        var latestSnapshotSolutionDir = GetAOTSnapshotDir(target);
+        var newHotUpdateSolutionDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        MetaVersionWorkflow.GenerateHotUpdateMetaVersionFiles(latestSnapshotSolutionDir, newHotUpdateSolutionDir);
     }
 
 
-    /// <summary>
-    /// 生成热更包的dhao数据
-    /// </summary>
-    [MenuItem("BuildTools/GenerateDHAODatas")]
-    public static void GenerateDHAODatas()
-    {
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string backupDir = $"{BackupAOTDllDir}/{target}";
-        string dhaoDir = $"{DhaoDir}/{target}";
-        string currentDllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        BuildUtils.GenerateDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, currentDllDir, null, HybridCLRSettings.Instance.injectRuleFiles, dhaoDir);
-    }
-
-
-    [MenuItem("BuildTools/CompileHotUpdateDlls")]
+    [MenuItem("Build/CompileHotUpdateDlls")]
     public static void CompileHotUpdateDlls()
     {
         BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
@@ -70,138 +61,54 @@ public static class BuildTools
     }
 
 
-    [MenuItem("BuildTools/CompileHotUpdateDllsAndGenerateDHAODatas")]
-    public static void CompileHotUpdateDllsAndGenerateDHAODatas()
+    [MenuItem("Build/CompileAndGenerateHotUpdateMetaVersionFiles")]
+    public static void CompileAndGenerateHotUpdateMetaVersionFiles()
     {
         CompileHotUpdateDlls();
-        GenerateDHAODatas();
+        GenerateHotUpdateMetaVersionFiles();
     }
 
-    /// <summary>
-    /// 复制热更新dll和dhao文件到StreamingAssets
-    /// </summary>
-    [MenuItem("BuildTools/CopyDllAndDhaoFileToHotUpdateDataDir")]
-    public static void CopyDllAndDhaoFileToHotUpdateDataDir()
-    {
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string hotUpdateDatasDir = $"{Application.dataPath}/../HotUpdateDatas";
-        Directory.CreateDirectory(hotUpdateDatasDir);
 
-        string dllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        string dhaoDir = $"{DhaoDir}/{target}";
+    private static void CopyOriginalMetaVersions(string originalMetaVersionDir, string outputMetaVersionDir)
+    {
+        Directory.CreateDirectory(outputMetaVersionDir);
         foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
         {
-            string srcFile = $"{dllDir}/{dll}.dll";
-            string dstFile = $"{hotUpdateDatasDir}/{dll}.dll.bytes";
-            System.IO.File.Copy(srcFile, dstFile, true);
-            Debug.Log($"Copy: {srcFile} -> {dstFile}");
-            string dhaoFile = $"{dhaoDir}/{dll}.dhao.bytes";
-            dstFile = $"{hotUpdateDatasDir}/{dll}.dhao.bytes";
-            System.IO.File.Copy(dhaoFile, dstFile, true);
-            Debug.Log($"Copy: {dhaoFile} -> {dstFile}");
+            string srcMetaVersionFile = $"{originalMetaVersionDir}/{dll}.mv.bytes";
+            string dstMetaVersionFile = $"{outputMetaVersionDir}/{dll}.mv.bytes";
+            System.IO.File.Copy(srcMetaVersionFile, dstMetaVersionFile, true);
+            Debug.Log($"Copy: {srcMetaVersionFile} -> {dstMetaVersionFile}");
         }
     }
 
-    ///// <summary>
-    ///// 创建dhe manifest文件，格式为每行一个 'dll名，原始dll的md5'
-    ///// </summary>
-    ///// <param name="outputDir"></param>
-    //[MenuItem("BuildTools/CreateManifestAtBackupDir")]
-    //public static void CreateManifest()
-    //{
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string backupDir = $"{BackupAOTDllDir}/{target}";
-    //    CreateManifest(backupDir);
-    //}
-
-    //public static void CreateManifest(string outputDir)
-    //{
-    //    Directory.CreateDirectory(outputDir);
-    //    var lines = new List<string>();
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string backupDir = $"{BackupAOTDllDir}/{target}";
-    //    foreach (string dheDll in SettingsUtil.DifferentialHybridAssemblyNames)
-    //    {
-    //        string originalDll = $"{backupDir}/{dheDll}.dll";
-    //        string originalDllMd5 = AssemblyOptionDataGenerator.CreateMD5Hash(File.ReadAllBytes(originalDll));
-    //        lines.Add($"{dheDll},{originalDllMd5}");
-    //    }
-    //    string manifestFile = $"{outputDir}/{ManifestFile}";
-    //    File.WriteAllBytes(manifestFile, System.Text.Encoding.UTF8.GetBytes(string.Join("\n", lines)));
-    //    Debug.Log($"CreateManifest: {manifestFile}");
-    //}
-
-    ///// <summary>
-    ///// 生成首包的没有任何代码改动对应的dhao数据
-    ///// </summary>
-    //[MenuItem("BuildTools/GenerateUnchangedDHAODatas")]
-    //public static void GenerateUnchangedDHAODatas()
-    //{
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string backupDir = $"{BackupAOTDllDir}/{target}";
-    //    string dhaoDir = $"{DhaoDir}/{target}";
-    //    BuildUtils.GenerateUnchangedDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, dhaoDir);
-    //}
+    [MenuItem("Build/CopyHotUpdateDllAndMetaVersionFilesToHotUpdateDataDir")]
+    public static void CopyHotUpdateDllAndMetaVersionFilesToHotUpdateDataDir()
+    {
+        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+        string outputHotUpdateResDir = $"{Application.dataPath}/../HotUpdateSnapshot/{target}";
+        BashUtil.RecreateDir(outputHotUpdateResDir);
 
 
+        // Copy OriginalMetaVersions
+        // 演示项目出于方便，在发布热更新时才复制这个目录。
+        // 实际项目推荐在CreateAotSnapshot时就复制这个目录到StreamingAssets目录下，随包发布。
+        CopyOriginalMetaVersions(Snapshot.GetMetaVersionDir(GetAOTSnapshotDir(target)), $"{outputHotUpdateResDir}/OriginalMetaVersions");
 
-    ///// <summary>
-    ///// 生成首包的加密dll和没有任何代码改动对应的dhao数据
-    ///// </summary>
-    //[MenuItem("BuildTools/GenerateUnchangedEncryptedDllAndDhaoDatas")]
-    //public static void GenerateUnchangedEncryptedDllAndDhaoDatas()
-    //{
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string backupDir = $"{BackupAOTDllDir}/{target}";
-    //    string dhaoDir = $"{DhaoDir}/{target}";
-    //    string encryptedDllDir = $"{EncrypedDllDir}/{target}";
-    //    BuildUtils.EncryptDllAndGenerateUnchangedDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, encryptedDllDir, dhaoDir);
-    //}
+        // Copy HotUpdate dlls and meta version files
+        string hotUpdateSnapshotDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
+        {
+            // copy dll
+            string srcFile = $"{hotUpdateSnapshotDir}/{dll}.dll";
+            string dstFile = $"{outputHotUpdateResDir}/{dll}.dll.bytes";
+            System.IO.File.Copy(srcFile, dstFile, true);
+            Debug.Log($"Copy: {srcFile} -> {dstFile}");
 
-
-    ///// <summary>
-    ///// 生成热更包的加密dll和dhao数据
-    ///// </summary>
-    //[MenuItem("BuildTools/GenerateEncryptedDllAndDhaoDatas")]
-    //public static void GenerateEncryptedDllAndDhaoDatas()
-    //{
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string backupDir = $"{BackupAOTDllDir}/{target}";
-    //    string dhaoDir = $"{DhaoDir}/{target}";
-    //    string currentDllDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-    //    string encryptedDllDir = $"{EncrypedDllDir}/{target}";
-    //    BuildUtils.EncryptDllAndGenerateDHAODatas(SettingsUtil.DifferentialHybridAssemblyNames, backupDir, currentDllDir, null, HybridCLRSettings.Instance.injectRuleFiles, encryptedDllDir, dhaoDir);
-    //}
-
-    ///// <summary>
-    ///// 复制没有改动的首包dll和dhao文件到StreamingAssets
-    ///// </summary>
-    //[MenuItem("BuildTools/CopyUnchangedDllAndDhaoFileAndManifestToStreamingAssets")]
-    //public static void CopyUnchangedDllAndDhaoFileToStreamingAssets()
-    //{
-    //    BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-    //    string streamingAssetsDir = Application.streamingAssetsPath;
-    //    Directory.CreateDirectory(streamingAssetsDir);
-
-    //    string manifestFile = $"{BackupAOTDllDir}/{target}/{ManifestFile}";
-    //    string dstManifestFile = $"{streamingAssetsDir}/{ManifestFile}";
-    //    System.IO.File.Copy(manifestFile, dstManifestFile, true);
-    //    Debug.Log($"CopyUnchangedDllAndDhaoFileToStreamingAssets: {manifestFile} -> {dstManifestFile}");
-
-    //    string dllDir = $"{BackupAOTDllDir}/{target}";
-    //    string dhaoDir = $"{DhaoDir}/{target}";
-    //    foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
-    //    {
-    //        string srcFile = $"{dllDir}/{dll}.dll";
-    //        string dstFile = $"{streamingAssetsDir}/{dll}.dll.bytes";
-    //        System.IO.File.Copy(srcFile, dstFile, true);
-    //        Debug.Log($"CopyUnchangedDllAndDhaoFileToStreamingAssets: {srcFile} -> {dstFile}");
-    //        string dhaoFile = $"{dhaoDir}/{dll}.dhao.bytes";
-    //        dstFile = $"{streamingAssetsDir}/{dll}.dhao.bytes";
-    //        System.IO.File.Copy(dhaoFile, dstFile, true);
-    //        Debug.Log($"CopyUnchangedDllAndDhaoFileToStreamingAssets: {dhaoFile} -> {dstFile}");
-    //    }
-    //}
-
-
+            // copy MetaVersion files
+            string srcMetaVersionFile = $"{Snapshot.GetMetaVersionDir(hotUpdateSnapshotDir)}/{dll}.mv.bytes";
+            string dstMetaVersionFile = $"{outputHotUpdateResDir}/{dll}.mv.bytes";
+            System.IO.File.Copy(srcMetaVersionFile, dstMetaVersionFile, true);
+            Debug.Log($"Copy: {srcMetaVersionFile} -> {dstMetaVersionFile}");
+        }
+    }
 }

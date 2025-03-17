@@ -17,9 +17,10 @@ public class LoadDll : MonoBehaviour
     void Start()
     {
         // Editor环境下，HotUpdate.dll.bytes已经被自动加载，不需要加载，重复加载反而会出问题。
-#if !UNITY_EDITOR
-        LoadDifferentialHybridAssembly("HotUpdate");
-#endif
+        if (!UnityEngine.Application.isEditor)
+        {
+            LoadDifferentialHybridAssembly("HotUpdate");
+        }
         Assembly hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
         Type helloType = hotUpdateAss.GetType("Hello");
         MethodInfo runMethod = helloType.GetMethod("Run");
@@ -51,8 +52,13 @@ public class LoadDll : MonoBehaviour
         else
         {
             byte[] dllBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dll.bytes");
-            byte[] dhaoBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.dhao.bytes");
-            LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssemblyUnchecked(dllBytes, dhaoBytes);
+            byte[] currentMetaVersionBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/{assName}.mv.bytes");
+            byte[] originalMetaVersionBytes = File.ReadAllBytes($"{Application.streamingAssetsPath}/OriginalMetaVersions/{assName}.mv.bytes");
+            LoadImageErrorCode err = RuntimeApi.LoadDifferentialHybridAssemblyWithMetaVersion(dllBytes,
+                null,
+                originalMetaVersionBytes,
+                currentMetaVersionBytes
+                );
             if (err == LoadImageErrorCode.OK)
             {
                 Debug.Log($"LoadDifferentialHybridAssembly {assName} OK");
