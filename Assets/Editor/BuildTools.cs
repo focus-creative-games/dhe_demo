@@ -19,14 +19,18 @@ public static class BuildTools
         return $"{SettingsUtil.HybridCLRDataDir}/Snapshot/{target}";
     }
 
+
+    public static string GetDhaoDir(BuildTarget target)
+    {
+        return $"{SettingsUtil.HybridCLRDataDir}/DHAO/{target}";
+    }
+
     [MenuItem("Build/CreateAotSnapshot")]
     public static void CreateAOTSnapshot()
     {
         BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
         string snapshotDir = GetAOTSnapshotDir(target);
         MetaVersionWorkflow.CreateAotSnapshot(target, snapshotDir);
-
-        MetaVersionWorkflow.GenerateAotSnapshotMetaVersionFiles(null, snapshotDir);
     }
 
     //[MenuItem("Build/GenerateHotUpdateMetaVersionFiles")]
@@ -40,7 +44,8 @@ public static class BuildTools
     {
         var latestSnapshotSolutionDir = GetAOTSnapshotDir(target);
         var newHotUpdateSolutionDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
-        MetaVersionWorkflow.GenerateHotUpdateMetaVersionFiles(latestSnapshotSolutionDir, newHotUpdateSolutionDir);
+        string dhaoOutputDir = GetDhaoDir(target);
+        DhaoWorkflow.GenerateDhaoFiles(latestSnapshotSolutionDir, newHotUpdateSolutionDir, dhaoOutputDir);
     }
 
 
@@ -68,19 +73,6 @@ public static class BuildTools
         GenerateHotUpdateMetaVersionFiles();
     }
 
-
-    private static void CopyOriginalMetaVersions(string originalMetaVersionDir, string outputMetaVersionDir)
-    {
-        Directory.CreateDirectory(outputMetaVersionDir);
-        foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
-        {
-            string srcMetaVersionFile = $"{originalMetaVersionDir}/{dll}.mv.bytes";
-            string dstMetaVersionFile = $"{outputMetaVersionDir}/{dll}.mv.bytes";
-            System.IO.File.Copy(srcMetaVersionFile, dstMetaVersionFile, true);
-            Debug.Log($"Copy: {srcMetaVersionFile} -> {dstMetaVersionFile}");
-        }
-    }
-
     [MenuItem("Build/CopyHotUpdateDllAndMetaVersionFilesToHotUpdateDataDir")]
     public static void CopyHotUpdateDllAndMetaVersionFilesToHotUpdateDataDir()
     {
@@ -88,14 +80,9 @@ public static class BuildTools
         string outputHotUpdateResDir = $"{Application.dataPath}/../HotUpdateSnapshot/{target}";
         BashUtil.RecreateDir(outputHotUpdateResDir);
 
-
-        // Copy OriginalMetaVersions
-        // 演示项目出于方便，在发布热更新时才复制这个目录。
-        // 实际项目推荐在CreateAotSnapshot时就复制这个目录到StreamingAssets目录下，随包发布。
-        CopyOriginalMetaVersions(Snapshot.GetMetaVersionDir(GetAOTSnapshotDir(target)), $"{outputHotUpdateResDir}/OriginalMetaVersions");
-
         // Copy HotUpdate dlls and meta version files
         string hotUpdateSnapshotDir = SettingsUtil.GetHotUpdateDllsOutputDirByTarget(target);
+        string dhaoDir = GetDhaoDir(target);
         foreach (var dll in SettingsUtil.DifferentialHybridAssemblyNames)
         {
             // copy dll
@@ -104,11 +91,11 @@ public static class BuildTools
             System.IO.File.Copy(srcFile, dstFile, true);
             Debug.Log($"Copy: {srcFile} -> {dstFile}");
 
-            // copy MetaVersion files
-            string srcMetaVersionFile = $"{Snapshot.GetMetaVersionDir(hotUpdateSnapshotDir)}/{dll}.mv.bytes";
-            string dstMetaVersionFile = $"{outputHotUpdateResDir}/{dll}.mv.bytes";
-            System.IO.File.Copy(srcMetaVersionFile, dstMetaVersionFile, true);
-            Debug.Log($"Copy: {srcMetaVersionFile} -> {dstMetaVersionFile}");
+            // copy dhao files
+            string srcDhaoFile = $"{dhaoDir}/{dll}.dhao.bytes";
+            string dstDhaoFile = $"{outputHotUpdateResDir}/{dll}.dhao.bytes";
+            System.IO.File.Copy(srcDhaoFile, dstDhaoFile, true);
+            Debug.Log($"Copy: {srcDhaoFile} -> {dstDhaoFile}");
         }
     }
 }
