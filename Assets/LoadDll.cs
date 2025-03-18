@@ -17,22 +17,15 @@ public class LoadDll : MonoBehaviour
     void Start()
     {
         // Editor环境下，HotUpdate.dll.bytes已经被自动加载，不需要加载，重复加载反而会出问题。
-        if (!UnityEngine.Application.isEditor)
-        {
-            LoadDifferentialHybridAssembly("HotUpdate");
-        }
+#if !UNITY_EDITOR
+        LoadDifferentialHybridAssembly("HotUpdate");
+#endif
         Assembly hotUpdateAss = System.AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == "HotUpdate");
         Type helloType = hotUpdateAss.GetType("Hello");
         MethodInfo runMethod = helloType.GetMethod("Run");
         runMethod.Invoke(null, null);
     }
 
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="assName">不含文件名后缀的程序集名，如HotUpdate</param>
-    /// <returns></returns>
     private void LoadDifferentialHybridAssembly(string assName)
     {
         string assFile = $"{Application.streamingAssetsPath}/{assName}.dll.bytes";
@@ -68,7 +61,5 @@ public class LoadDll : MonoBehaviour
                 Debug.LogError($"LoadDifferentialHybridAssembly {assName} failed, err={err}");
             }
         }
-
-
     }
 }
